@@ -1,10 +1,12 @@
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
-import { generateMockTrends } from '../../lib/utils';
-import { TrendingUp, Zap, Target } from 'lucide-react';
+import { useTrendAnalysis } from '../../hooks/useTrendAnalysis';
+import { TrendingUp, Zap, Target, RefreshCw, AlertCircle } from 'lucide-react';
+import { Button } from '../ui/Button';
+import { SkeletonList } from '../ui/LoadingSkeleton';
 
 export const TrendAnalysis: React.FC = () => {
-  const trends = generateMockTrends();
+  const { trendingCoins, loading, error, refreshTrends, isStale } = useTrendAnalysis();
 
   const getMemeabilityColor = (score: number) => {
     if (score >= 80) return 'text-accent';
@@ -13,22 +15,75 @@ export const TrendAnalysis: React.FC = () => {
   };
 
   const getHypeIcon = (prediction: string) => {
-    switch (prediction) {
-      case 'Explosive': return <Zap className="w-4 h-4 text-yellow-400" />;
-      case 'Rising': return <TrendingUp className="w-4 h-4 text-accent" />;
+    switch (prediction.toLowerCase()) {
+      case 'explosive': return <Zap className="w-4 h-4 text-yellow-400" />;
+      case 'rising': return <TrendingUp className="w-4 h-4 text-accent" />;
       default: return <Target className="w-4 h-4 text-gray-400" />;
     }
   };
+
+  if (loading && trendingCoins.length === 0) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Trending Meme Coins</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <SkeletonList items={5} />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-2 text-destructive">
+              <AlertCircle className="w-5 h-5" />
+              <span>Error loading trends: {error}</span>
+            </div>
+            <Button 
+              onClick={refreshTrends} 
+              className="mt-4"
+              variant="secondary"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Trending Meme Coins</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Trending Meme Coins</CardTitle>
+            <div className="flex items-center space-x-2">
+              {isStale && (
+                <span className="text-xs text-yellow-400">Data may be outdated</span>
+              )}
+              <Button
+                onClick={refreshTrends}
+                variant="secondary"
+                className="h-8 px-3 text-xs"
+                disabled={loading}
+              >
+                <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {trends.map((trend) => (
+            {trendingCoins.map((trend) => (
               <div key={trend.symbol} className="p-4 rounded-md bg-background border border-muted-300">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center space-x-3">
@@ -42,10 +97,10 @@ export const TrendAnalysis: React.FC = () => {
                   </div>
                   
                   <div className="text-right">
-                    <p className="font-medium text-white">${trend.price}</p>
+                    <p className="font-medium text-white">${trend.price.toFixed(6)}</p>
                     <div className="flex items-center">
                       <span className={`text-sm ${trend.change24h >= 0 ? 'text-accent' : 'text-destructive'}`}>
-                        {trend.change24h >= 0 ? '+' : ''}{trend.change24h}%
+                        {trend.change24h >= 0 ? '+' : ''}{trend.change24h.toFixed(2)}%
                       </span>
                     </div>
                   </div>
@@ -63,13 +118,13 @@ export const TrendAnalysis: React.FC = () => {
                     <p className="text-caption">Hype Prediction</p>
                     <div className="flex items-center space-x-1">
                       {getHypeIcon(trend.hypePrediction)}
-                      <span className="text-white">{trend.hypePrediction}</span>
+                      <span className="text-white capitalize">{trend.hypePrediction}</span>
                     </div>
                   </div>
                   
                   <div>
                     <p className="text-caption">Sentiment</p>
-                    <p className="text-white">{trend.sentiment}</p>
+                    <p className="text-white capitalize">{trend.sentiment}</p>
                   </div>
                   
                   <div>
@@ -79,6 +134,11 @@ export const TrendAnalysis: React.FC = () => {
                 </div>
               </div>
             ))}
+            {trendingCoins.length === 0 && !loading && (
+              <div className="text-center py-8">
+                <p className="text-caption">No trending coins found</p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
